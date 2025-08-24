@@ -23,9 +23,9 @@ func (e *errorString) Error() string {
 // ErrorWrapper defines the interface for creating and wrapping errors.
 type ErrorWrapper interface {
 	// NewError wraps an existing error with a new message.
-	NewError(msg string, err error) error
+	NewError(err error, msg ...string) error
 	// NewErrorString creates a new error from a string and wraps it with a message.
-	NewErrorString(msg string, errStr string) error
+	NewErrorString(errStr string, msg ...string) error
 }
 
 // errWrapper is the concrete implementation of the ErrorWrapper interface.
@@ -57,13 +57,17 @@ func New(errJoiner byte, prefix ...string) ErrorWrapper {
 
 // NewError wraps an existing error with the wrapper's prefix and a new message.
 // If the error being wrapped is also an errWrapper, it combines their prefixes.
-func (ew errWrapper) NewError(msg string, err error) error {
+func (ew errWrapper) NewError(err error, msg ...string) error {
+	var tmpMsg string
+	if len(msg) >= 1 {
+		tmpMsg = msg[0]
+	}
 	if errors.As(err, &errWrapper{}) {
 		if j, exists := err.(*errWrapper); exists && j.prefix != "" {
 			if ew.prefix == "" {
 				return &errWrapper{
 					prefix: j.prefix,
-					msg:    msg,
+					msg:    tmpMsg,
 					err:    j.err,
 				}
 			}
@@ -73,7 +77,7 @@ func (ew errWrapper) NewError(msg string, err error) error {
 			sb.WriteString(j.prefix)
 			return &errWrapper{
 				prefix: sb.String(),
-				msg:    msg,
+				msg:    tmpMsg,
 				err:    j.err,
 			}
 		}
@@ -81,16 +85,20 @@ func (ew errWrapper) NewError(msg string, err error) error {
 	return &errWrapper{
 		prefix: ew.prefix,
 		err:    err,
-		msg:    msg,
+		msg:    tmpMsg,
 	}
 }
 
 // NewErrorString wraps a new error, created from a string, with the wrapper's prefix and a message.
-func (ew errWrapper) NewErrorString(msg, errString string) error {
+func (ew errWrapper) NewErrorString(errStr string, msg ...string) error {
+	var tmpMsg string
+	if len(msg) >= 1 {
+		tmpMsg = msg[0]
+	}
 	return &errWrapper{
 		prefix: ew.prefix,
-		err:    &errorString{errString},
-		msg:    msg,
+		err:    &errorString{errStr},
+		msg:    tmpMsg,
 	}
 }
 
