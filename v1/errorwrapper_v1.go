@@ -1,9 +1,6 @@
 package errorwrapper
 
-import (
-	"errors"
-	"strings"
-)
+import "strings"
 
 const (
 	defaultErrJoiner byte   = 0x2E // Default character to join prefixes, which is '.'
@@ -55,6 +52,22 @@ func New(errJoiner byte, prefix ...string) ErrorWrapper {
 	return ew
 }
 
+// unwrapRecursively traverses a chain of errWrapper errors.
+// It returns the combined prefix of all wrappers and the root, non-wrapper error.
+func unwrapRecursively(err error, joiner byte) (string, error) {
+	if ew, ok := err.(*errWrapper); ok {
+		recursivePrefix, underlyingErr := unwrapRecursively(ew.err, joiner)
+		var sb strings.Builder
+		sb.WriteString(ew.prefix)
+		if ew.prefix != "" && recursivePrefix != "" {
+			sb.WriteByte(joiner)
+		}
+		sb.WriteString(recursivePrefix)
+		return sb.String(), underlyingErr
+	}
+	return "", err
+}
+
 // NewError wraps an existing error with the wrapper's prefix and a new message.
 // If the error being wrapped is also an errWrapper, it combines their prefixes.
 func (ew errWrapper) NewError(err error, msg ...string) error {
@@ -62,30 +75,20 @@ func (ew errWrapper) NewError(err error, msg ...string) error {
 	if len(msg) >= 1 {
 		tmpMsg = msg[0]
 	}
-	if errors.As(err, &errWrapper{}) {
-		if j, exists := err.(*errWrapper); exists && j.prefix != "" {
-			if ew.prefix == "" {
-				return &errWrapper{
-					prefix: j.prefix,
-					msg:    tmpMsg,
-					err:    j.err,
-				}
-			}
-			var sb strings.Builder
-			sb.WriteString(ew.prefix)
-			sb.WriteByte(ew.errJoiner)
-			sb.WriteString(j.prefix)
-			return &errWrapper{
-				prefix: sb.String(),
-				msg:    tmpMsg,
-				err:    j.err,
-			}
-		}
+	var (
+		unwPrefix, undErr = unwrapRecursively(err, ew.errJoiner)
+		sb                strings.Builder
+	)
+	sb.WriteString(ew.prefix)
+	if ew.prefix != "" && unwPrefix != "" {
+		sb.WriteByte(ew.errJoiner)
 	}
+	sb.WriteString(unwPrefix)
 	return &errWrapper{
-		prefix: ew.prefix,
-		err:    err,
-		msg:    tmpMsg,
+		prefix:    sb.String(),
+		err:       undErr,
+		msg:       tmpMsg,
+		errJoiner: ew.errJoiner,
 	}
 }
 
