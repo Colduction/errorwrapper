@@ -71,6 +71,9 @@ func unwrapRecursively(err error, joiner byte) (string, error) {
 // NewError wraps an existing error with the wrapper's prefix and a new message.
 // If the error being wrapped is also an errWrapper, it combines their prefixes.
 func (ew errWrapper) NewError(err error, msg ...string) error {
+	if err == nil {
+		return nil
+	}
 	var tmpMsg string
 	if len(msg) >= 1 {
 		tmpMsg = msg[0]
@@ -94,6 +97,9 @@ func (ew errWrapper) NewError(err error, msg ...string) error {
 
 // NewErrorString wraps a new error, created from a string, with the wrapper's prefix and a message.
 func (ew errWrapper) NewErrorString(errStr string, msg ...string) error {
+	if errStr == "" {
+		return nil
+	}
 	var tmpMsg string
 	if len(msg) >= 1 {
 		tmpMsg = msg[0]
